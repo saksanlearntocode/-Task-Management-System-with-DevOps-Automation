@@ -62,18 +62,26 @@ jobs:
 
       - name: Test Application
         run: |
-          # Test the application endpoints
-          curl -X POST http://localhost:5001/todos -H "Content-Type: application/json" -d '{"title":"Test Todo","description":"Testing the application"}'
-          curl http://localhost:5001/todos
+          # Test adding a new task
+          curl -X POST http://localhost:5001/add \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "title=Test Todo&description=Testing the application"
           
-          # Verify the application is working correctly
-          response=$(curl -s http://localhost:5001/todos)
+          # Get the index page and check if the task is present
+          response=$(curl -s http://localhost:5001/)
           if [[ $response == *"Test Todo"* ]]; then
             echo "Application test successful"
           else
             echo "Application test failed"
             exit 1
           fi
+
+          # Test task completion
+          task_id=1  # Assuming this is the first task
+          curl -s http://localhost:5001/complete/$task_id
+          
+          # Test task deletion
+          curl -s http://localhost:5001/delete/$task_id
 
       - name: Cleanup
         if: always()
