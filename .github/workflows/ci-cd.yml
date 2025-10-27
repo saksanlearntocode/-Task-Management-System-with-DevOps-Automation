@@ -37,21 +37,35 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
 
-  validate-kubernetes:
+  test-deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v1
-        with:
-          version: 'latest'
-
-      - name: Validate Kubernetes manifests
+      - name: Start LocalStack
         run: |
-          kubectl validate -f kubernetes/storage-class.yaml
-          kubectl validate -f kubernetes/todo-pv-pvc.yaml
-          kubectl validate -f kubernetes/todo-deployment.yaml
-          kubectl validate -f kubernetes/todo-service.yaml
+          docker-compose -f docker-compose-localstack.yml up -d localstack
+          sleep 10  # Wait for LocalStack to start
+
+      - name: Configure LocalStack
+        run: |
+          pip install awscli-local
+          awslocal eks create-cluster --name test-cluster --role-arn arn:aws:iam::000000000000:role/test-role --region us-east-1
+          
+      - name: Deploy to LocalStack
+        run: |
+          export AWS_ENDPOINT_URL=http://localhost:4566
+          kubectl config set-cluster test-cluster --server=http://localhost:4566
+          kubectl apply -f kubernetes/storage-class.yaml
+          kubectl apply -f kubernetes/todo-deployment.yaml
+          kubectl apply -f kubernetes/todo-service.yaml
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -l app=todo-app
+          kubectl get service todo-app-service
+
+      - name: Cleanup
+        run: docker-compose -f docker-compose-localstack.yml down
