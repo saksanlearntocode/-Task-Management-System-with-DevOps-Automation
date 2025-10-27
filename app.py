@@ -19,8 +19,10 @@ def get_db():
 def index():
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT * FROM tasks ORDER BY created_at DESC')
-    tasks = c.fetchall()
+    c.execute('SELECT id, title, description, completed, created_at FROM tasks ORDER BY created_at DESC')
+    rows = c.fetchall()
+    tasks = [{'id': row[0], 'title': row[1], 'description': row[2], 
+              'completed': row[3], 'created_at': row[4]} for row in rows]
     conn.close()
     return render_template('index.html', tasks=tasks)
 
