@@ -2,23 +2,9 @@ version: '3.8'
 
 services:
   todo-app:
-    build: .
-    container_name: todo-app-compose
+    container_name: todo-app
+    image: sakshisanghvi11/todo-app:latest
     ports:
-      - "5000:5000"
+      - "5001:5000"
     environment:
-      - FLASK_ENV=production
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - todo_data:/app/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  todo_data:
-    driver: local
+      - FLASK_ENV=development

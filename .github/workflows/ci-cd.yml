@@ -50,65 +50,33 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
-      - name: Install Python and pip
+      - name: Start Application
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install awscli-local
+          docker-compose up -d
+          sleep 10  # Give the application time to start
 
-      - name: Start LocalStack
-        run: |
-          docker-compose -f docker-compose-localstack.yml up -d localstack
-          sleep 15  # Give LocalStack more time to start
-
-      - name: Check LocalStack Status
+      - name: Check Application Status
         run: |
           docker ps
-          docker logs localstack
-
-      - name: Configure LocalStack
-        run: |
-          export AWS_ACCESS_KEY_ID=test
-          export AWS_SECRET_ACCESS_KEY=test
-          export AWS_DEFAULT_REGION=us-east-1
-          export ENDPOINT_URL=http://localhost:4566
-          
-          # Create a VPC for EKS
-          VPC_ID=$(awslocal ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
-          
-          # Create subnets
-          SUBNET1_ID=$(awslocal ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.1.0/24 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
-          SUBNET2_ID=$(awslocal ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.2.0/24 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
-          
-          # Create EKS cluster
-          awslocal eks create-cluster \
-            --name test-cluster \
-            --role-arn arn:aws:iam::000000000000:role/test-role \
-            --resources-vpc-config subnetIds=$SUBNET1_ID,$SUBNET2_ID,securityGroupIds=sg-12345 \
-            --kubernetes-version 1.21 \
-            --region us-east-1
-
-          # Wait for cluster to be active
-          sleep 10
-
-      - name: Deploy to LocalStack
-        run: |
-          export AWS_ENDPOINT_URL=http://localhost:4566
-          
-          # Update kubeconfig
-          awslocal eks update-kubeconfig --name test-cluster --region us-east-1
-          
-          # Apply Kubernetes manifests
-          kubectl apply -f kubernetes/todo-deployment.yaml
-          kubectl apply -f kubernetes/todo-service.yaml
+          docker logs todo-app
 
       - name: Test Application
         run: |
-          sleep 10
-          curl http://localhost:5001
+          # Test the application endpoints
+          curl -X POST http://localhost:5001/todos -H "Content-Type: application/json" -d '{"title":"Test Todo","description":"Testing the application"}'
+          curl http://localhost:5001/todos
+          
+          # Verify the application is working correctly
+          response=$(curl -s http://localhost:5001/todos)
+          if [[ $response == *"Test Todo"* ]]; then
+            echo "Application test successful"
+          else
+            echo "Application test failed"
+            exit 1
+          fi
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f docker-compose-localstack.yml down
+          docker-compose down
           docker system prune -f
