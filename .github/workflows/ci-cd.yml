@@ -73,15 +73,32 @@ jobs:
           export AWS_DEFAULT_REGION=us-east-1
           export ENDPOINT_URL=http://localhost:4566
           
+          # Create a VPC for EKS
+          VPC_ID=$(awslocal ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
+          
+          # Create subnets
+          SUBNET1_ID=$(awslocal ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.1.0/24 --availability-zone us-east-1a --query 'Subnet.SubnetId' --output text)
+          SUBNET2_ID=$(awslocal ec2 create-subnet --vpc-id $VPC_ID --cidr-block 10.0.2.0/24 --availability-zone us-east-1b --query 'Subnet.SubnetId' --output text)
+          
+          # Create EKS cluster
           awslocal eks create-cluster \
             --name test-cluster \
             --role-arn arn:aws:iam::000000000000:role/test-role \
+            --resources-vpc-config subnetIds=$SUBNET1_ID,$SUBNET2_ID,securityGroupIds=sg-12345 \
+            --kubernetes-version 1.21 \
             --region us-east-1
+
+          # Wait for cluster to be active
+          sleep 10
 
       - name: Deploy to LocalStack
         run: |
           export AWS_ENDPOINT_URL=http://localhost:4566
-          kubectl config set-cluster test-cluster --server=http://localhost:4566
+          
+          # Update kubeconfig
+          awslocal eks update-kubeconfig --name test-cluster --region us-east-1
+          
+          # Apply Kubernetes manifests
           kubectl apply -f kubernetes/todo-deployment.yaml
           kubectl apply -f kubernetes/todo-service.yaml
 
