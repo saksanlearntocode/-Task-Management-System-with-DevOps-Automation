@@ -37,10 +37,9 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
 
-  deploy:
+  validate-kubernetes:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
@@ -50,19 +49,9 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Configure kubectl
+      - name: Validate Kubernetes manifests
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f kubernetes/storage-class.yaml
-          kubectl apply -f kubernetes/todo-pv-pvc.yaml
-          kubectl apply -f kubernetes/todo-deployment.yaml
-          kubectl apply -f kubernetes/todo-service.yaml
-
-      - name: Verify deployment
-        run: |
-          kubectl get pods -l app=todo-app
-          kubectl get service todo-app-service
+          kubectl validate -f kubernetes/storage-class.yaml
+          kubectl validate -f kubernetes/todo-pv-pvc.yaml
+          kubectl validate -f kubernetes/todo-deployment.yaml
+          kubectl validate -f kubernetes/todo-service.yaml
