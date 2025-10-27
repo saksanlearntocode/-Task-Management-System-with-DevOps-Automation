@@ -2,12 +2,16 @@ import sqlite3
 import os
 
 def init_db():
+    # Use absolute path for the database
+    db_path = '/app/data/todos.db'
+    db_dir = os.path.dirname(db_path)
+    
     # Ensure data directory exists
-    if not os.path.exists('data'):
-        os.makedirs('data')
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
 
     # Connect to SQLite database (this will create it if it doesn't exist)
-    conn = sqlite3.connect('data/todos.db')
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # Create tasks table
