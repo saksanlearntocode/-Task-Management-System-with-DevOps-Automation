@@ -60,28 +60,86 @@ jobs:
           docker ps
           docker logs todo-app
 
+      - name: Install Testing Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl python3-pip
+          pip3 install beautifulsoup4 requests
+
       - name: Test Application
         run: |
-          # Test adding a new task
-          curl -X POST http://localhost:5001/add \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "title=Test Todo&description=Testing the application"
-          
-          # Get the index page and check if the task is present
-          response=$(curl -s http://localhost:5001/)
-          if [[ $response == *"Test Todo"* ]]; then
-            echo "Application test successful"
-          else
-            echo "Application test failed"
-            exit 1
-          fi
+          cat > test_app.py << 'EOL'
+          import requests
+          from bs4 import BeautifulSoup
+          import time
+          import sys
 
-          # Test task completion
-          task_id=1  # Assuming this is the first task
-          curl -s http://localhost:5001/complete/$task_id
-          
-          # Test task deletion
-          curl -s http://localhost:5001/delete/$task_id
+          BASE_URL = 'http://localhost:5001'
+
+          def test_app():
+              # Test 1: Check if the application is up
+              try:
+                  response = requests.get(BASE_URL)
+                  response.raise_for_status()
+                  print("✓ Application is up and running")
+              except Exception as e:
+                  print("✗ Application is not responding:", str(e))
+                  sys.exit(1)
+
+              # Test 2: Add a new task
+              try:
+                  response = requests.post(f"{BASE_URL}/add", 
+                      data={
+                          'title': 'Test Todo',
+                          'description': 'Testing the application'
+                      },
+                      allow_redirects=True
+                  )
+                  response.raise_for_status()
+                  print("✓ Successfully added new task")
+              except Exception as e:
+                  print("✗ Failed to add task:", str(e))
+                  sys.exit(1)
+
+              # Test 3: Verify task was added
+              try:
+                  response = requests.get(BASE_URL)
+                  soup = BeautifulSoup(response.text, 'html.parser')
+                  if 'Test Todo' in response.text:
+                      print("✓ Task found in the list")
+                  else:
+                      print("✗ Task not found in the list")
+                      sys.exit(1)
+              except Exception as e:
+                  print("✗ Failed to verify task:", str(e))
+                  sys.exit(1)
+
+              # Test 4: Complete the task
+              try:
+                  # Find the task ID from the page
+                  soup = BeautifulSoup(response.text, 'html.parser')
+                  complete_link = soup.find('a', string='Complete')
+                  if complete_link:
+                      task_id = complete_link['href'].split('/')[-1]
+                      response = requests.get(f"{BASE_URL}/complete/{task_id}", allow_redirects=True)
+                      response.raise_for_status()
+                      print("✓ Successfully completed task")
+                  else:
+                      print("✗ Could not find task to complete")
+                      sys.exit(1)
+              except Exception as e:
+                  print("✗ Failed to complete task:", str(e))
+                  sys.exit(1)
+
+              print("All tests passed successfully!")
+
+          if __name__ == '__main__':
+              # Wait a bit for the application to be fully ready
+              time.sleep(5)
+              test_app()
+          EOL
+
+          python3 test_app.py
 
       - name: Cleanup
         if: always()
