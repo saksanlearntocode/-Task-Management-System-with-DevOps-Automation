@@ -45,3 +45,4 @@ kubectl apply -f kubernetes/
 - Local: http://localhost:5000
 - Kubernetes: Check service IP using `kubectl get svc todo-app-service`
 # Trigger build Mon Oct 27 09:11:00 UTC 2025
+# Trigger rebuild Mon Oct 27 09:12:42 UTC 2025
